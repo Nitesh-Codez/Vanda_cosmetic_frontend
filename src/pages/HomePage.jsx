@@ -8,6 +8,7 @@ const HomePage = () => {
   const [errorMsg, setErrorMsg] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [currentUser, setCurrentUser] = useState(null);
 
   const navigate = useNavigate();
 
@@ -15,78 +16,56 @@ const HomePage = () => {
     import.meta.env.VITE_API_BASE_URL ||
     "https://vanda-cosmetic.onrender.com";
 
+  // Check logged-in user from localStorage on mount
+  useEffect(() => {
+    const savedUser = localStorage.getItem("vanda_user");
+    if (savedUser) {
+      try {
+        setCurrentUser(JSON.parse(savedUser));
+      } catch (e) {
+        console.error("Error parsing user from storage", e);
+      }
+    }
+  }, []);
+
   // =====================================================
   // FETCH PRODUCTS + CATEGORIES
   // =====================================================
-
   useEffect(() => {
     let isMounted = true;
 
-    const fetchWithRetry = async (
-      url,
-      retries = 5,
-      delay = 3000
-    ) => {
+    const fetchWithRetry = async (url, retries = 5, delay = 3000) => {
       for (let i = 0; i < retries; i++) {
         try {
           const res = await fetch(url);
-
           if (!res.ok) {
-            throw new Error(
-              `HTTP ${res.status}: ${res.statusText}`
-            );
+            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
           }
-
-          const contentType =
-            res.headers.get("content-type");
-
-          if (
-            !contentType ||
-            !contentType.includes("application/json")
-          ) {
-            throw new Error(
-              `Expected JSON response from ${url}`
-            );
+          const contentType = res.headers.get("content-type");
+          if (!contentType || !contentType.includes("application/json")) {
+            throw new Error(`Expected JSON response from ${url}`);
           }
-
           return await res.json();
         } catch (err) {
-          console.error(
-            `Attempt ${i + 1} failed:`,
-            err.message
-          );
-
+          console.error(`Attempt ${i + 1} failed:`, err.message);
           if (i === retries - 1) {
             throw err;
           }
-
-          await new Promise((resolve) =>
-            setTimeout(resolve, delay)
-          );
+          await new Promise((resolve) => setTimeout(resolve, delay));
         }
       }
     };
 
     const loadData = async () => {
       try {
-        setErrorMsg(
-          "Please wait...."
-        );
+        setErrorMsg("Please wait....");
 
-        const [prodData, catData] =
-          await Promise.all([
-            // PRODUCTS
-            fetchWithRetry(
-              `${API_BASE_URL}/api/admin/products`
-            ),
-
-            // CATEGORIES
-            fetchWithRetry(
-              `${API_BASE_URL}/api/admin/categories`
-            ).catch(() => ({
-              categories: [],
-            })),
-          ]);
+        const [prodData, catData] = await Promise.all([
+          fetchWithRetry(`${API_BASE_URL}/api/admin/products`),
+          fetchWithRetry(`${API_BASE_URL}/api/admin/categories`).catch(() => ({
+            categories: [],
+          })),
+        ]);
 
         if (!isMounted) return;
 
@@ -94,27 +73,17 @@ const HomePage = () => {
           ? prodData
           : prodData.products || [];
 
-        // =====================================================
-        // RANDOM SHUFFLE ON EVERY REFRESH (Upar-Neeche Position)
-        // =====================================================
         const shuffledProducts = [...rawProducts].sort(
           () => Math.random() - 0.5
         );
 
         setProducts(shuffledProducts);
-
-        setCategories(
-          catData.categories || []
-        );
-
+        setCategories(catData.categories || []);
         setErrorMsg("");
       } catch (err) {
         console.error("Fetch error:", err);
-
         if (isMounted) {
-          setErrorMsg(
-            "Could not connect to backend. Please try again."
-          );
+          setErrorMsg("Could not connect to backend. Please try again.");
         }
       } finally {
         if (isMounted) {
@@ -133,51 +102,31 @@ const HomePage = () => {
   // =====================================================
   // SEARCH + CATEGORY FILTER
   // =====================================================
-
   const filteredProducts = useMemo(() => {
-    const search = searchTerm
-      .toLowerCase()
-      .trim();
+    const search = searchTerm.toLowerCase().trim();
 
     return products.filter((product) => {
       const matchesSearch =
         !search ||
-        product.name
-          ?.toLowerCase()
-          .includes(search) ||
-        product.brand
-          ?.toLowerCase()
-          .includes(search);
+        product.name?.toLowerCase().includes(search) ||
+        product.brand?.toLowerCase().includes(search);
 
       const matchesCategory =
         selectedCategory === "all" ||
-        String(product.category_id) ===
-          String(selectedCategory);
+        String(product.category_id) === String(selectedCategory);
 
       return matchesSearch && matchesCategory;
     });
-  }, [
-    products,
-    searchTerm,
-    selectedCategory,
-  ]);
+  }, [products, searchTerm, selectedCategory]);
 
   // =====================================================
-  // LOADING
+  // LOADING STATE
   // =====================================================
-
   if (loading) {
     return (
       <div style={loadingContainer}>
-        <div style={loadingTitle}>
-          🛍️ Loading Collection...
-        </div>
-
-        {errorMsg && (
-          <div style={loadingMessage}>
-            {errorMsg}
-          </div>
-        )}
+        <div style={loadingTitle}>🛍️ Loading Collection...</div>
+        {errorMsg && <div style={loadingMessage}>{errorMsg}</div>}
       </div>
     );
   }
@@ -185,61 +134,56 @@ const HomePage = () => {
   // =====================================================
   // MAIN UI
   // =====================================================
-
   return (
     <div style={containerStyle}>
-
       {/* HEADER */}
       <div style={headerNav}>
-        <h2 style={brandTitle}>
-          🛍️ Vanda Cosmetic & Boutique
-        </h2>
-
-        <span style={topBadge}>
-          Explore Collection
-        </span>
+        <h2 style={brandTitle}>🛍️ Vanda Cosmetic & Boutique</h2>
+        <span style={topBadge}>Explore Collection</span>
       </div>
 
-      {/* ERROR */}
-      {errorMsg && (
-        <div style={errorBox}>
-          ⚠️ {errorMsg}
+      {/* REGISTRATION PROMPT (If First Time / Not Logged In) */}
+      {!currentUser && (
+        <div style={registerPromptCard}>
+          <div>
+            <div style={{ fontWeight: "700", fontSize: "14px", color: "#1e1b4b" }}>
+              New to Vanda Cosmetic?
+            </div>
+            <div style={{ fontSize: "12px", color: "#64748b" }}>
+              Register now to start placing orders, save addresses & track items!
+            </div>
+          </div>
+          <button
+            style={registerBtn}
+            onClick={() => navigate("/register")}
+          >
+            Register Now
+          </button>
         </div>
       )}
 
+      {/* ERROR */}
+      {errorMsg && <div style={errorBox}>⚠️ {errorMsg}</div>}
+
       {/* SEARCH + CATEGORY */}
       <div style={searchCard}>
-
-        <span style={searchIcon}>
-          🔍
-        </span>
-
+        <span style={searchIcon}>🔍</span>
         <input
           type="text"
           placeholder="Search products, brands..."
           value={searchTerm}
-          onChange={(e) =>
-            setSearchTerm(e.target.value)
-          }
+          onChange={(e) => setSearchTerm(e.target.value)}
           style={searchInput}
         />
 
         <select
           value={selectedCategory}
-          onChange={(e) =>
-            setSelectedCategory(e.target.value)
-          }
+          onChange={(e) => setSelectedCategory(e.target.value)}
           style={filterSelect}
         >
-          <option value="all">
-            All Categories
-          </option>
-
+          <option value="all">All Categories</option>
           {categories.map((cat) => (
-            <option
-              key={cat.id}
-              value={cat.id}
-            >
+            <option key={cat.id} value={cat.id}>
               {cat.name}
             </option>
           ))}
@@ -248,52 +192,30 @@ const HomePage = () => {
 
       {/* PRODUCTS GRID */}
       <div style={gridStyle}>
-
         {filteredProducts.length === 0 ? (
           <div style={noProducts}>
             <h3>No products found</h3>
           </div>
         ) : (
           filteredProducts.map((product) => {
-
-            const productId =
-              product.id || product._id;
-
-            // ==========================================
-            // PRICE CALCULATION
-            // ==========================================
-
-            const originalPrice =
-              Number(product.price) || 0;
-
-            const discountAmount =
-              Number(product.discount_price) || 0;
-
+            const productId = product.id || product._id;
+            const originalPrice = Number(product.price) || 0;
+            const discountAmount = Number(product.discount_price) || 0;
             const finalPrice =
               discountAmount > 0
                 ? originalPrice - discountAmount
                 : originalPrice;
 
-            // ==========================================
-            // VALID DISCOUNT CHECK
-            // ==========================================
-
             const hasDiscount =
-              discountAmount > 0 &&
-              discountAmount < originalPrice;
+              discountAmount > 0 && discountAmount < originalPrice;
 
             return (
               <div
                 key={productId}
-                onClick={() =>
-                  navigate(
-                    `/product/${productId}`
-                  )
-                }
+                onClick={() => navigate(`/product/${productId}`)}
                 style={productCard}
                 className="product-card-hover"
               >
-
                 {/* PRODUCT IMAGE */}
                 <div style={imageWrapper}>
                   <img
@@ -309,63 +231,62 @@ const HomePage = () => {
 
                 {/* PRODUCT DETAILS */}
                 <div style={productDetails}>
-
-                  {/* BRAND */}
                   <div style={brandStyle}>
-                    {product.brand ||
-                      "Vanda Exclusive"}
+                    {product.brand || "Vanda Exclusive"}
                   </div>
 
-                  {/* PRODUCT NAME */}
-                  <h4 style={productName}>
-                    {product.name}
-                  </h4>
+                  <h4 style={productName}>{product.name}</h4>
 
-                  {/* PRICE */}
                   <div style={priceSection}>
-
                     {hasDiscount ? (
                       <>
-                        <span
-                          style={originalPriceStyle}
-                        >
+                        <span style={originalPriceStyle}>
                           ₹{originalPrice.toFixed(2)}
                         </span>
-
-                        <span
-                          style={finalPriceStyle}
-                        >
+                        <span style={finalPriceStyle}>
                           ₹{finalPrice.toFixed(2)}
                         </span>
                       </>
                     ) : (
-                      <span
-                        style={normalPriceStyle}
-                      >
+                      <span style={normalPriceStyle}>
                         ₹{originalPrice.toFixed(2)}
                       </span>
                     )}
-
                   </div>
-
                 </div>
               </div>
             );
           })
         )}
-
       </div>
 
-      {/* HOVER STYLE */}
+      {/* BOTTOM NAVIGATION BAR */}
+      <div style={bottomNavStyle}>
+        <div style={navItemStyle} onClick={() => navigate("/")}>
+          <span style={navIconStyle}>🏠</span>
+          <span style={navLabelStyle}>Home</span>
+        </div>
+        <div style={navItemStyle} onClick={() => navigate("/cart")}>
+          <span style={navIconStyle}>🛒</span>
+          <span style={navLabelStyle}>My Cart</span>
+        </div>
+        <div style={navItemStyle} onClick={() => navigate("/profile")}>
+          <span style={navIconStyle}>📦</span>
+          <span style={navLabelStyle}>My Orders</span>
+        </div>
+        <div style={navItemStyle} onClick={() => navigate("/profile")}>
+          <span style={navIconStyle}>👤</span>
+          <span style={navLabelStyle}>My Profile</span>
+        </div>
+      </div>
+
+      {/* HOVER & LAYOUT STYLES */}
       <style>{`
         .product-card-hover:hover {
           transform: translateY(-3px);
-          box-shadow:
-            0 8px 20px
-            rgba(0,0,0,0.08) !important;
+          box-shadow: 0 8px 20px rgba(0,0,0,0.08) !important;
         }
       `}</style>
-
     </div>
   );
 };
@@ -373,7 +294,6 @@ const HomePage = () => {
 // =====================================================
 // STYLES
 // =====================================================
-
 const loadingContainer = {
   padding: "80px 20px",
   textAlign: "center",
@@ -395,10 +315,11 @@ const loadingMessage = {
 const containerStyle = {
   background: "#f8fafc",
   minHeight: "100vh",
-  padding: "16px",
+  padding: "16px 16px 90px 16px", // extra bottom padding for bottom nav
   fontFamily: "'Inter', sans-serif",
   maxWidth: "600px",
   margin: "0 auto",
+  position: "relative",
 };
 
 const headerNav = {
@@ -410,8 +331,7 @@ const headerNav = {
   padding: "14px 20px",
   borderRadius: "12px",
   color: "white",
-  boxShadow:
-    "0 4px 15px rgba(30, 27, 75, 0.15)",
+  boxShadow: "0 4px 15px rgba(30, 27, 75, 0.15)",
 };
 
 const brandTitle = {
@@ -426,6 +346,30 @@ const topBadge = {
   borderRadius: "6px",
   fontSize: "11px",
   fontWeight: "600",
+};
+
+const registerPromptCard = {
+  background: "linear-gradient(135deg, #ede9fe 0%, #fae8ff 100%)",
+  border: "1px solid #d8b4fe",
+  borderRadius: "12px",
+  padding: "14px 16px",
+  marginBottom: "16px",
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  boxShadow: "0 2px 8px rgba(147, 51, 234, 0.08)",
+};
+
+const registerBtn = {
+  backgroundColor: "#7c3aed",
+  color: "white",
+  border: "none",
+  padding: "8px 14px",
+  borderRadius: "8px",
+  fontWeight: "700",
+  fontSize: "12px",
+  cursor: "pointer",
+  boxShadow: "0 4px 10px rgba(124, 58, 237, 0.2)",
 };
 
 const errorBox = {
@@ -445,8 +389,7 @@ const searchCard = {
   display: "flex",
   alignItems: "center",
   gap: "8px",
-  boxShadow:
-    "0 2px 8px rgba(0,0,0,0.04)",
+  boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
   border: "1px solid #e2e8f0",
   marginBottom: "16px",
 };
@@ -496,8 +439,7 @@ const productCard = {
   border: "1px solid #e2e8f0",
   cursor: "pointer",
   transition: "all 0.2s ease",
-  boxShadow:
-    "0 2px 6px rgba(0,0,0,0.02)",
+  boxShadow: "0 2px 6px rgba(0,0,0,0.02)",
 };
 
 const imageWrapper = {
@@ -558,6 +500,41 @@ const normalPriceStyle = {
   fontWeight: "800",
   color: "#059669",
   fontSize: "14px",
+};
+
+const bottomNavStyle = {
+  position: "fixed",
+  bottom: 0,
+  left: "50%",
+  transform: "translateX(-50%)",
+  width: "100%",
+  maxWidth: "600px",
+  backgroundColor: "white",
+  borderTop: "1px solid #e2e8f0",
+  display: "flex",
+  justifyContent: "space-around",
+  padding: "10px 0",
+  boxShadow: "0 -4px 15px rgba(0,0,0,0.05)",
+  zIndex: 1000,
+};
+
+const navItemStyle = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  cursor: "pointer",
+  flex: 1,
+};
+
+const navIconStyle = {
+  fontSize: "18px",
+  marginBottom: "2px",
+};
+
+const navLabelStyle = {
+  fontSize: "10px",
+  fontWeight: "700",
+  color: "#475569",
 };
 
 export default HomePage;

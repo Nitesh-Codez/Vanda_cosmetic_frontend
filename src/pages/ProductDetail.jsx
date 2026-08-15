@@ -153,6 +153,51 @@ const ProductDetail = () => {
   };
 
   // =====================================================
+  // BUY NOW & ADD TO CART HANDLERS
+  // =====================================================
+
+  const handleAddToCart = () => {
+    if (!product) return;
+    
+    // Retrieve existing cart from localStorage or initialize empty array
+    let cart = [];
+    try {
+      const storedCart = localStorage.getItem("vanda_cart");
+      if (storedCart) {
+        cart = JSON.parse(storedCart);
+      }
+    } catch (e) {
+      console.error("Error reading cart from storage", e);
+    }
+
+    const productId = product.id || product._id;
+    const existingIndex = cart.findIndex(
+      (item) => String(item.id || item._id) === String(productId)
+    );
+
+    if (existingIndex > -1) {
+      cart[existingIndex].quantity = (cart[existingIndex].quantity || 1) + 1;
+    } else {
+      cart.push({ ...product, quantity: 1 });
+    }
+
+    localStorage.setItem("vanda_cart", JSON.stringify(cart));
+    alert("🎉 Product added to your cart successfully!");
+    navigate("/cart");
+  };
+
+  const handleBuyNow = () => {
+    if (!product) return;
+    
+    // Temporarily save single item checkout details or push to cart and go to checkout
+    const productId = product.id || product._id;
+    const singleCheckoutItem = [{ ...product, quantity: 1 }];
+    
+    localStorage.setItem("vanda_direct_checkout", JSON.stringify(singleCheckoutItem));
+    navigate("/checkout");
+  };
+
+  // =====================================================
   // LOADING
   // =====================================================
 
@@ -334,6 +379,22 @@ const ProductDetail = () => {
               </span>
             </div>
           )}
+
+          {/* ACTION BUTTONS (ADD TO CART & BUY NOW) */}
+          <div style={actionButtonsContainer}>
+            <button 
+              style={addToCartBtnStyle}
+              onClick={handleAddToCart}
+            >
+              🛒 Add to Cart
+            </button>
+            <button 
+              style={buyNowBtnStyle}
+              onClick={handleBuyNow}
+            >
+              ⚡ Buy Now
+            </button>
+          </div>
 
         </div>
       </div>
@@ -651,6 +712,40 @@ const infoRow = {
   fontSize: "13px",
   color: "#475569",
   marginTop: "6px",
+};
+
+const actionButtonsContainer = {
+  display: "flex",
+  gap: "12px",
+  marginTop: "20px",
+};
+
+const addToCartBtnStyle = {
+  flex: 1,
+  backgroundColor: "#4f46e5",
+  color: "white",
+  border: "none",
+  padding: "12px 16px",
+  borderRadius: "8px",
+  fontWeight: "700",
+  fontSize: "13px",
+  cursor: "pointer",
+  boxShadow: "0 4px 12px rgba(79, 70, 229, 0.2)",
+  transition: "all 0.2s ease",
+};
+
+const buyNowBtnStyle = {
+  flex: 1,
+  backgroundColor: "#059669",
+  color: "white",
+  border: "none",
+  padding: "12px 16px",
+  borderRadius: "8px",
+  fontWeight: "700",
+  fontSize: "13px",
+  cursor: "pointer",
+  boxShadow: "0 4px 12px rgba(5, 150, 105, 0.2)",
+  transition: "all 0.2s ease",
 };
 
 const similarTitle = {
