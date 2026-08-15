@@ -54,10 +54,10 @@ const AdminProducts = () => {
   { id: 17, name: "Maxi" },
   { id: 19, name: "Beauty" },
   { id: 20, name: "Gift Frames" },
-  { id: 20, name: "Gift Mug and cups" },
-  { id: 20, name: "Earings" },
-  { id: 20, name: "toys" },
-  { id: 20, name: "gifts" },
+  { id: 21, name: "Gift Mug and cups" },
+  { id: 22, name: "Earings" },
+  { id: 23, name: "toys" },
+  { id: 24, name: "gifts" },
   ];
 
   // --- INITIAL LOAD ---
